@@ -28,9 +28,9 @@
 
 //-------------------User defined parameters-------------------
 #define SAMPLING_PERIOD 60 //us 
-#define CIRCULAR_BUFFER_SIZE 408
-#define NUM_SAMPLES_DELAY 407 //N
-#define A_FLOAT (float) 0.7 //a
+#define CIRCULAR_BUFFER_SIZE 2677
+#define NUM_SAMPLES_DELAY 2676 //N
+#define A_FLOAT (float) 0.5 //a
 //-------------------------------------------------------------
 #define A (int16_t)(A_FLOAT*(1<<6))
 
