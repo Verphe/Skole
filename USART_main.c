@@ -5,8 +5,8 @@
  * Created on January 16, 2025, 9:01 PM
  */
 
-#define F_CPU 4000000UL
-#define USART_BAUD_RATE(BAUD_RATE) ((float)(F_CPU * 64 / (16 * (float)BAUD_RATE)) + 0.5)
+#define F_CPU 4000000UL //Standardklokkefrekvens
+#define USART_BAUD_RATE(BAUD_RATE) ((float)(F_CPU * 64 / (16 * (float)BAUD_RATE)) + 0.5) //BAUD_RATE eq. fra usart-guide
 #define COMMON_BAUD_RATE 9600
 
 #include <avr/io.h>
@@ -43,9 +43,11 @@ int main(void)
     PORTB.OUT |= PIN3_bm;
     
     stdout = &USART_stream;
+    
     USART2_init(COMMON_BAUD_RATE);
     USART3_init(COMMON_BAUD_RATE);
-
+    //rx_char = 0;
+    //printf("Cool dude\r\n");
     srand(time(NULL)); 
     int j = 0;
     
@@ -62,9 +64,11 @@ int main(void)
         
         if (rx_char == tx_char) {
             PORTB.OUT &= ~PIN3_bm;
+            //printf("%c \r\n",tx_char);
             //printf("\n TX OK!\n\n\r");
         } else {
             PORTB.OUT |= PIN3_bm;
+            //printf("%c. \r\n",tx_char);
             //flush();
             //printf("TX BAD!\n\n\r");
             //_delay_ms(10);
@@ -112,9 +116,9 @@ void USART2_init(unsigned long baud)
     PORTF.DIR &= ~PIN5_bm; //Set 1 to input
     PORTF.DIR |= PIN4_bm; //Set 0 to output
 
-    USART2.BAUD = (uint16_t)USART_BAUD_RATE(baud);
-    USART2.CTRLB |= USART_TXEN_bm;
-    USART2.CTRLB |= USART_RXEN_bm;
+    USART2.BAUD = (uint16_t)USART_BAUD_RATE(baud); //Setter baud-rate
+    USART2.CTRLB |= USART_TXEN_bm; //Setter transmitteren på 
+    USART2.CTRLB |= USART_RXEN_bm; //Setter receiveren på 
 }
 
 void USART2_sendChar(char c)
@@ -142,7 +146,7 @@ void USART3_init(unsigned long baud)
 
     USART3.BAUD = (uint16_t)USART_BAUD_RATE(baud); //Setter baud-rate
     USART3.CTRLB |= USART_TXEN_bm; //Setter transmitteren på 
-    USART3.CTRLB |= USART_RXEN_bm;
+    USART3.CTRLB |= USART_RXEN_bm; //Setter receiveren på
 }
 
 void USART3_sendChar(char c)
@@ -167,9 +171,8 @@ uint8_t USART3_read()
 void flush() {
     // Tøm RX-bufferet ved å lese alle data som fortsatt er i RXCIF
     while ((USART2.STATUS & USART_RXCIF_bm)) {
-        volatile uint8_t bufferVar = USART2.RXDATAL; // Les og forkast data
+        volatile uint8_t flushVar = USART2.RXDATAL; // Les og forkast data
     }
-    //printf("Flushed!\r\n");
 }
     
 void timeout(){
