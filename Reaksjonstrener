@@ -1,0 +1,112 @@
+// Kjernevalg
+#if CONFIG_FREERTOS_UNICORE
+  static const BaseType_t app_cpu = 0;
+#else
+  static const BaseType_t app_cpu = 1;
+#endif
+
+//Pin‐konfig
+constexpr int numButtons = 4;
+const int btnPins[numButtons] = {12, 14, 27, 26};
+const int ledPins[numButtons] = {13, 33, 32, 25};
+
+//Task‐handle, semafore og timer
+static TaskHandle_t ledTasks[numButton];
+static TimerHandle_t gameTimer;
+static SemaphoreHandle_t gameMutex;
+
+//Spill‐variabler
+volatile int score = 0;
+volatile int lives = 3;
+volatile int rounds = 0;
+
+//ISR for knapp 0–3
+void IRAM_ATTR ISR_BTN0() { BaseType_t task_woken=pdFALSE; vTaskNotifyGiveFromISR(ledTasks[0], &task_woken); portYIELD_FROM_ISR(task_woken);}
+void IRAM_ATTR ISR_BTN1() { BaseType_t task_woken=pdFALSE; vTaskNotifyGiveFromISR(ledTasks[1], &task_woken); portYIELD_FROM_ISR(task_woken);}
+void IRAM_ATTR ISR_BTN2() { BaseType_t task_woken=pdFALSE; vTaskNotifyGiveFromISR(ledTasks[2], &task_woken); portYIELD_FROM_ISR(task_woken);}
+void IRAM_ATTR ISR_BTN3() { BaseType_t task_woken=pdFALSE; vTaskNotifyGiveFromISR(ledTasks[3], &task_woken); portYIELD_FROM_ISR(task_woken);}
+
+//LED‐task
+void ledRandomizer(void* parameters) {
+  int id = (int)(intptr_t)parameters;
+  pinMode(ledPins[id], OUTPUT);
+  digitalWrite(ledPins[id], LOW);
+  const TickType_t reactionWindow = 1500;
+
+  while(1){
+    //Vent på start fra gameTimer
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+    digitalWrite(ledPins[id], HIGH);
+
+    //Vent på knapp innen vinduet
+    BaseType_t hit = ulTaskNotifyTake(pdTRUE, reactionWindow);
+    digitalWrite(ledPins[id], LOW);
+
+    // Beskytt delt tilstand
+    xSemaphoreTake(gameMutex, portMAX_DELAY);
+      rounds++;
+      if (hit){
+        score++;
+        Serial.printf("Du traff! Poeng = %d - Liv = %d\n", score, lives);
+      }
+      else{
+        lives--;
+        Serial.printf("Bom! Poeng = %d - Liv = %d\n", score, lives);
+      }
+    xSemaphoreGive(gameMutex);
+  }
+}
+
+//Timer‐callback
+void gameTimerCallback(TimerHandle_t) {
+  if (lives <= 0) {
+    Serial.printf("Game over! Runder = %d - Poeng = %d\n", rounds, score);
+    xTimerStop(gameTimer, 0);
+    return;
+  }
+  int next = random(0, numButtons);
+  Serial.printf("Runde %d – LED %d\n", rounds+1, next);
+  xTaskNotifyGive(ledTasks[next]);
+}
+
+void setup() {
+  //Oppretter seriell kommunikasjon
+  Serial.begin(115200);
+  delay(1000);
+
+  //Opretter mutex for kritiske variabler
+  gameMutex = xSemaphoreCreateMutex();
+
+  //Pins
+  for (int i = 0; i < numButtons; i++) {
+    pinMode(btnPins[i], INPUT);
+    pinMode(ledPins[i], OUTPUT);
+  }
+
+  //Setter interrupts til knappene
+  attachInterrupt(btnPins[0], ISR_BTN0, FALLING);
+  attachInterrupt(btnPins[1], ISR_BTN1, FALLING);
+  attachInterrupt(btnPins[2], ISR_BTN2, FALLING);
+  attachInterrupt(btnPins[3], ISR_BTN3, FALLING);
+
+  //LED‐tasks
+  for (int i = 0; i < numButtons; i++) {
+    xTaskCreatePinnedToCore(
+      ledRandomizer,
+      ("LED Randomizer" + String(i)).c_str(),
+      2048,
+      (void*)(intptr_t)i,
+      1,
+      &ledTasks[i],
+      app_cpu
+    );
+  }
+
+  //Game‐timer (1.5s intervall)
+  gameTimer = xTimerCreate("Game timer", 1500, pdTRUE, nullptr, gameTimerCb);
+  gameTimerCallback(nullptr);
+  xTimerStart(gameTimer, 0);
+}
+
+void loop() {
+}
