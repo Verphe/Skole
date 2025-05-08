@@ -26,7 +26,7 @@
 #include <time.h>
 
 #include "cosine_table.h"
-#include "extraTest.h"
+#include "customUSART.h"
 
 /* Parametere for frekvenssveip. Justering av disse endrer oppfÃ¸rselen til sveipet. */
 
